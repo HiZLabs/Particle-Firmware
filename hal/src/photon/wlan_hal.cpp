@@ -39,6 +39,8 @@
 #include "dct_hal.h"
 #include "concurrent_hal.h"
 #include "wwd_resources.h"
+#include "dct.h"
+#include "wwd_management.h"
 
 LOG_SOURCE_CATEGORY("hal.wlan");
 
@@ -56,15 +58,25 @@ wiced_country_code_t fetch_country_code()
 
     wiced_country_code_t result =
         wiced_country_code_t(MK_CNTRY(code[0], code[1], hex_nibble(code[2])));
-    if (code[0] == 0xFF || code[0] == 0)
-    {
-        result = WICED_COUNTRY_UNITED_KINGDOM; // default is UK, so channels 1-13 are available by default.
-    }
+
+    // if Japan explicitly configured, lower tx power for TELEC certification
     if (result == WICED_COUNTRY_JAPAN)
     {
-        wwd_select_nvram_image_resource(1, nullptr); // lower tx power for TELEC certification
+        wwd_select_nvram_image_resource(1, nullptr);
+    }
+
+    // if no country configured, use Japan WiFi config for compatibility with older firmware
+    if (code[0] == 0xFF || code[0] == 0)
+    {
+        result = WICED_COUNTRY_JAPAN;
     }
     return result;
+}
+
+bool isWiFiPowersaveClockDisabled() {
+    const uint8_t* data = (const uint8_t*)dct_read_app_data(DCT_RADIO_FLAGS_OFFSET);
+    uint8_t current = (*data);
+    return ((current&3) == 0x2);
 }
 
 bool initialize_dct(platform_dct_wifi_config_t* wifi_config, bool force=false)
@@ -75,7 +87,9 @@ bool initialize_dct(platform_dct_wifi_config_t* wifi_config, bool force=false)
         wifi_config->country_code != country)
     {
         if (!wifi_config->device_configured)
-        memset(wifi_config, 0, sizeof(*wifi_config));
+        {
+            memset(wifi_config, 0, sizeof(*wifi_config));
+        }
         wifi_config->country_code = country;
         wifi_config->device_configured = WICED_TRUE;
         changed = true;
@@ -290,7 +304,13 @@ int wlan_select_antenna(WLanSelectAntenna_TypeDef antenna)
 
 wlan_result_t wlan_activate()
 {
-    wlan_initialize_dct();
+#if PLATFORM_ID==PLATFORM_P1
+	if (isWiFiPowersaveClockDisabled()) {
+		wwd_set_wlan_sleep_clock_enabled(WICED_FALSE);
+	}
+#endif
+
+	wlan_initialize_dct();
     wlan_result_t result = wiced_wlan_connectivity_init();
     if (!result)
         wiced_network_register_link_callback(HAL_NET_notify_connected, HAL_NET_notify_disconnected,

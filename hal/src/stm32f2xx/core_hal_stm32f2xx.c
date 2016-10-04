@@ -52,6 +52,11 @@
 #include "usart_hal.h"
 #include "deviceid_hal.h"
 
+#if PLATFORM_ID==PLATFORM_P1
+#include "wwd_management.h"
+#include "wlan_hal.h"
+#endif
+
 #define STOP_MODE_EXIT_CONDITION_PIN 0x01
 #define STOP_MODE_EXIT_CONDITION_RTC 0x02
 
@@ -314,6 +319,9 @@ void HAL_Core_Config(void)
 #if PLATFORM_ID==8 // Additional pins for P1
     for (pin_t pin=24; pin<=29; pin++)
         HAL_Pin_Mode(pin, INPUT);
+    if (isWiFiPowersaveClockDisabled()) {
+        HAL_Pin_Mode(30, INPUT); // Wi-Fi Powersave clock is disabled, default to INPUT
+    }
 #endif
 #if PLATFORM_ID==10 // Additional pins for Electron
     for (pin_t pin=24; pin<=35; pin++)
@@ -515,8 +523,8 @@ void HAL_Core_Enter_Stop_Mode(uint16_t wakeUpPin, uint16_t edgeTriggerMode, long
 
     SysTick->CTRL &= ~SysTick_CTRL_ENABLE_Msk;
 
-    // Disable USB Serial (detach)
-    USB_USART_Init(0);
+    // Detach USB
+    HAL_USB_Detach();
 
     // Flush all USARTs
     for (int usart = 0; usart < TOTAL_USARTS; usart++)
@@ -554,7 +562,13 @@ void HAL_Core_Enter_Stop_Mode(uint16_t wakeUpPin, uint16_t edgeTriggerMode, long
         }
 
         HAL_Pin_Mode(wakeUpPin, wakeUpPinMode);
-        HAL_Interrupts_Attach(wakeUpPin, NULL, NULL, edgeTriggerMode, NULL);
+        HAL_InterruptExtraConfiguration irqConf = {0};
+        irqConf.version = HAL_INTERRUPT_EXTRA_CONFIGURATION_VERSION_2;
+        irqConf.IRQChannelPreemptionPriority = 0;
+        irqConf.IRQChannelSubPriority = 0;
+        irqConf.keepHandler = 1;
+        irqConf.keepPriority = 1;
+        HAL_Interrupts_Attach(wakeUpPin, NULL, NULL, edgeTriggerMode, &irqConf);
 
         exit_conditions |= STOP_MODE_EXIT_CONDITION_PIN;
     }
@@ -585,7 +599,7 @@ void HAL_Core_Enter_Stop_Mode(uint16_t wakeUpPin, uint16_t edgeTriggerMode, long
 
     if (exit_conditions & STOP_MODE_EXIT_CONDITION_PIN) {
         /* Detach the Interrupt pin */
-        HAL_Interrupts_Detach(wakeUpPin);
+        HAL_Interrupts_Detach_Ext(wakeUpPin, 1, NULL);
     }
 
     if (exit_conditions & STOP_MODE_EXIT_CONDITION_RTC) {
@@ -603,7 +617,7 @@ void HAL_Core_Enter_Stop_Mode(uint16_t wakeUpPin, uint16_t edgeTriggerMode, long
 
     SysTick->CTRL |= SysTick_CTRL_ENABLE_Msk;
 
-    USB_USART_Init(9600);
+    HAL_USB_Attach();
 }
 
 void HAL_Core_Execute_Stop_Mode(void)
@@ -637,8 +651,14 @@ void HAL_Core_Execute_Stop_Mode(void)
     while(RCC_GetSYSCLKSource() != 0x08);
 }
 
-void HAL_Core_Enter_Standby_Mode(void)
+void HAL_Core_Enter_Standby_Mode(uint32_t seconds, void* reserved)
 {
+    // Configure RTC wake-up
+    if (seconds > 0) {
+        HAL_RTC_Cancel_UnixAlarm();
+        HAL_RTC_Set_UnixAlarm((time_t) seconds);
+    }
+
     HAL_Core_Execute_Standby_Mode();
 }
 
@@ -1157,6 +1177,21 @@ int HAL_Feature_Set(HAL_Feature feature, bool enabled)
             Write_Feature_Flag(FEATURE_FLAG_RESET_INFO, enabled, NULL);
             return 0;
         }
+
+#if PLATFORM_ID==PLATFORM_P1
+        case FEATURE_WIFI_POWERSAVE_CLOCK:
+        {
+            wwd_set_wlan_sleep_clock_enabled(enabled);
+            const uint8_t* data = (const uint8_t*)dct_read_app_data(DCT_RADIO_FLAGS_OFFSET);
+            uint8_t current = (*data);
+            current &= 0xFC;
+            if (!enabled) {
+                current |= 2;   // 0bxxxxxx10 to disable the clock, any other value to enable it.
+            }
+            dct_write_app_data(&current, DCT_RADIO_FLAGS_OFFSET, 1);
+        }
+#endif
+
 
     }
     return -1;

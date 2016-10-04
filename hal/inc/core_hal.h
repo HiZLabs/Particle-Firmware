@@ -138,7 +138,7 @@ void HAL_Core_Enter_Safe_Mode(void* reserved);
 void HAL_Core_Enter_Bootloader(bool persist);
 void HAL_Core_Enter_Stop_Mode(uint16_t wakeUpPin, uint16_t edgeTriggerMode, long seconds);
 void HAL_Core_Execute_Stop_Mode(void);
-void HAL_Core_Enter_Standby_Mode(void);
+void HAL_Core_Enter_Standby_Mode(uint32_t seconds, void* reserved);
 void HAL_Core_Execute_Standby_Mode(void);
 uint32_t HAL_Core_Compute_CRC32(const uint8_t *pBuffer, uint32_t bufferSize);
 
@@ -223,7 +223,8 @@ typedef enum HAL_Feature {
     FEATURE_RETAINED_MEMORY=1,       // [write only] retained memory on backup power
     FEATURE_WARM_START,              // [read only] set to true if previous retained memory contents are available]
 	FEATURE_CLOUD_UDP,				// [read only] true if the UDP implementation should be used.
-    FEATURE_RESET_INFO               // [read/write] enables handling of last reset info (may affect backup registers)
+    FEATURE_RESET_INFO,              // [read/write] enables handling of last reset info (may affect backup registers)
+	FEATURE_WIFI_POWERSAVE_CLOCK,	// [write only] enables/disables the WiFi powersave clock on the TESTMODE pin. This setting is persisted to the DCT.
 } HAL_Feature;
 
 int HAL_Feature_Set(HAL_Feature feature, bool enabled);

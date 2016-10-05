@@ -127,7 +127,7 @@ bool FLASH_CheckValidAddressRange(flash_device_t flashDeviceID, uint32_t startAd
     else if (flashDeviceID == FLASH_SERIAL)
     {
 #ifdef USE_SERIAL_FLASH
-        if (startAddress < 0x4000 || endAddress >= 0x100000)
+        if (startAddress < 0x0000 || endAddress >= 0x100000)
         {
             return false;
         }
@@ -267,7 +267,7 @@ bool FLASH_CheckCopyMemory(flash_device_t sourceDeviceID, uint32_t sourceAddress
         return false;
     }
 
-#ifndef USE_SERIAL_FLASH    // this predates the module system (early P1's using external flash for storage)
+//#ifndef USE_SERIAL_FLASH    // this predates the module system (early P1's using external flash for storage)
     if ((sourceDeviceID == FLASH_INTERNAL) && (flags & MODULE_VERIFY_MASK))
     {
         uint32_t moduleLength = FLASH_ModuleLength(sourceDeviceID, sourceAddress);
@@ -299,7 +299,7 @@ bool FLASH_CheckCopyMemory(flash_device_t sourceDeviceID, uint32_t sourceAddress
             return false;
         }
     }
-#endif
+//#endif
     return true;
 }
 
@@ -426,6 +426,9 @@ bool FLASH_CompareMemory(flash_device_t sourceDeviceID, uint32_t sourceAddress,
                          flash_device_t destinationDeviceID, uint32_t destinationAddress,
                          uint32_t length)
 {
+#ifdef USE_SERIAL_FLASH
+    uint8_t serialFlashData[4];
+#endif
 	uint32_t endAddress = sourceAddress + length;
 
     if (FLASH_CheckValidAddressRange(sourceDeviceID, sourceAddress, length) != true)
@@ -842,8 +845,8 @@ void FLASH_Backup(uint32_t FLASH_Address)
 void FLASH_Restore(uint32_t FLASH_Address)
 {
 #ifdef USE_SERIAL_FLASH
-    //CRC verification Disabled by default
-    FLASH_CopyMemory(FLASH_SERIAL, FLASH_Address, FLASH_INTERNAL, CORE_FW_ADDRESS, FIRMWARE_IMAGE_SIZE, 0, 0);
+    //Verify CRC before copy
+    FLASH_CopyMemory(FLASH_SERIAL, FLASH_Address, FLASH_INTERNAL, CORE_FW_ADDRESS, FIRMWARE_IMAGE_SIZE, 0, MODULE_VERIFY_CRC);
 #else
     //commented below since FIRMWARE_IMAGE_SIZE != Actual factory firmware image size
     //FLASH_CopyMemory(FLASH_INTERNAL, FLASH_Address, FLASH_INTERNAL, USER_FIRMWARE_IMAGE_LOCATION, FIRMWARE_IMAGE_SIZE, true);

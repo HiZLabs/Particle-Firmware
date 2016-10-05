@@ -138,6 +138,7 @@
 	#define HAS_SERIAL_FLASH
     #define sFLASH_PAGESIZE     0x1000 /* 4096 bytes sector size that needs to be erased */
     #define sFLASH_PAGECOUNT    256    /* 1MByte storage */
+	#define USE_SERIAL_FLASH 1
 #endif
 
 #define FLASH_UPDATE_MODULES

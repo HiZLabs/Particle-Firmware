@@ -347,6 +347,9 @@ void HAL_Core_Config(void)
 #ifdef HAS_SERIAL_FLASH
     //Initialize Serial Flash
     sFLASH_Init();
+    //TODO: Make this work
+    FLASH_AddToFactoryResetModuleSlot(FLASH_SERIAL, EXTERNAL_FLASH_FAC_ADDRESS,
+    								  FLASH_SERIAL, CORE_FW_ADDRESS, FIRMWARE_IMAGE_SIZE, 0, 0);
 #else
     FLASH_AddToFactoryResetModuleSlot(FLASH_INTERNAL, INTERNAL_FLASH_FAC_ADDRESS,
                                       FLASH_INTERNAL, USER_FIRMWARE_IMAGE_LOCATION, FIRMWARE_IMAGE_SIZE,

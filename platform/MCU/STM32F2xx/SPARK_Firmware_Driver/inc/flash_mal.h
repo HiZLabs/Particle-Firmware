@@ -93,7 +93,9 @@ extern "C" {
 #endif
     #define USER_FIRMWARE_IMAGE_LOCATION CORE_FW_ADDRESS
     #ifdef USE_SERIAL_FLASH
-    #define FIRMWARE_IMAGE_SIZE     0x7E000 //504K
+//	#define FIRMWARE_IMAGE_SIZE     0x7E000 //504K
+	#define FIRMWARE_IMAGE_SIZE     0xE0000 //896k
+	#define TEST_FIRMWARE_IMAGE_SIZE 0
     #else
 	#ifdef COMBINED_FIRMWARE_IMAGE
 		#define FIRMWARE_IMAGE_SIZE 0x80000	// 512k system-part1+system-part2
@@ -120,7 +122,9 @@ extern "C" {
 
     #ifdef USE_SERIAL_FLASH
     /* External Flash memory address where Factory programmed core firmware is located */
-    #define EXTERNAL_FLASH_FAC_ADDRESS  ((uint32_t)0x4000)
+//	#define EXTERNAL_FLASH_FAC_ADDRESS  ((uint32_t)0x4000)
+	//mirror internal flash
+	#define EXTERNAL_FLASH_FAC_ADDRESS  ((uint32_t)0x20000)
     /* External Flash memory address where core firmware will be saved for backup/restore */
     #define EXTERNAL_FLASH_BKP_ADDRESS  ((uint32_t)EXTERNAL_FLASH_FAC_ADDRESS)
     /* External Flash memory address where OTA upgraded core firmware will be saved */

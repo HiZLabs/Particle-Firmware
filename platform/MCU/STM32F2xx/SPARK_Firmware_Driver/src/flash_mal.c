@@ -268,7 +268,7 @@ bool FLASH_CheckCopyMemory(flash_device_t sourceDeviceID, uint32_t sourceAddress
     }
 
 //#ifndef USE_SERIAL_FLASH    // this predates the module system (early P1's using external flash for storage)
-    if ((sourceDeviceID == FLASH_INTERNAL) && (flags & MODULE_VERIFY_MASK))
+    if (/*(sourceDeviceID == FLASH_INTERNAL) &&*/ (flags & MODULE_VERIFY_MASK))
     {
         uint32_t moduleLength = FLASH_ModuleLength(sourceDeviceID, sourceAddress);
 
@@ -608,10 +608,17 @@ bool FLASH_ApplyFactoryResetImage(copymem_fn_t copy)
     }
     else
     {
+#ifdef HAS_SERIAL_FLASH
+        // attempt to use the default that the bootloader was built with
+        restoreFactoryReset = copy(FLASH_SERIAL, EXTERNAL_FLASH_FAC_ADDRESS, FLASH_INTERNAL, USER_FIRMWARE_IMAGE_LOCATION, FIRMWARE_IMAGE_SIZE,
+            FACTORY_RESET_MODULE_FUNCTION,
+            MODULE_VERIFY_CRC | MODULE_VERIFY_DESTINATION_IS_START_ADDRESS | MODULE_VERIFY_FUNCTION);
+#else
         // attempt to use the default that the bootloader was built with
         restoreFactoryReset = copy(FLASH_INTERNAL, INTERNAL_FLASH_FAC_ADDRESS, FLASH_INTERNAL, USER_FIRMWARE_IMAGE_LOCATION, FIRMWARE_IMAGE_SIZE,
             FACTORY_RESET_MODULE_FUNCTION,
             MODULE_VERIFY_CRC | MODULE_VERIFY_DESTINATION_IS_START_ADDRESS | MODULE_VERIFY_FUNCTION);
+#endif
     }
     return restoreFactoryReset;
 
@@ -677,6 +684,11 @@ void FLASH_UpdateModules(void (*flashModulesCallback)(bool isUpdating))
     }
 }
 
+//TODO: engineer this better so the RAM isn't wasted
+#ifdef HAS_SERIAL_FLASH
+static module_info_t serial_module_info;
+#endif
+
 const module_info_t* FLASH_ModuleInfo(uint8_t flashDeviceID, uint32_t startAddress)
 {
     if(flashDeviceID == FLASH_INTERNAL)
@@ -690,6 +702,19 @@ const module_info_t* FLASH_ModuleInfo(uint8_t flashDeviceID, uint32_t startAddre
 
         return module_info;
     }
+#ifdef HAS_SERIAL_FLASH
+    else if(flashDeviceID == FLASH_SERIAL)
+    {
+    	if(startAddress == EXTERNAL_FLASH_FAC_ADDRESS)
+    	{
+    		startAddress += 0x184;
+    	}
+
+    	sFLASH_Init();
+    	sFLASH_ReadBuffer((uint8_t*)&serial_module_info, startAddress, sizeof(module_info_t));
+    	return &serial_module_info;
+    }
+#endif
 
     return NULL;
 }
@@ -728,6 +753,10 @@ bool FLASH_isUserModuleInfoValid(uint8_t flashDeviceID, uint32_t startAddress, u
             && (module_info->platform_id==PLATFORM_ID));
 }
 
+#ifdef HAS_SERIAL_FLASH
+uint32_t Compute_CRC32_sFLASH(uint32_t addr, uint32_t len);
+#endif
+
 bool FLASH_VerifyCRC32(uint8_t flashDeviceID, uint32_t startAddress, uint32_t length)
 {
     if(flashDeviceID == FLASH_INTERNAL && length > 0)
@@ -740,6 +769,21 @@ bool FLASH_VerifyCRC32(uint8_t flashDeviceID, uint32_t startAddress, uint32_t le
             return true;
         }
     }
+#ifdef HAS_SERIAL_FLASH
+    else if(flashDeviceID == FLASH_SERIAL && length > 0)
+    {
+        uint32_t expectedCRC;
+    	sFLASH_Init();
+    	sFLASH_ReadBuffer((uint8_t*)&expectedCRC, startAddress + length, 4);
+    	expectedCRC = __REV(expectedCRC);
+        uint32_t computedCRC = Compute_CRC32_sFLASH(startAddress, length);
+
+        if (expectedCRC == computedCRC)
+        {
+            return true;
+        }
+    }
+#endif
 
     return false;
 }

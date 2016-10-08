@@ -269,8 +269,7 @@ int main(void)
 #define TIMING_RESET_MODE 10000
 #define TIMING_ALL 12000            // add a couple of seconds for visual feedback
 
-    	//TODO: make this actually work
-        bool factory_reset_available = 1; //(features & BL_FEATURE_FACTORY_RESET) && FLASH_IsFactoryResetAvailable();
+        bool factory_reset_available = (features & BL_FEATURE_FACTORY_RESET) && FLASH_IsFactoryResetAvailable();
 
         TimingBUTTON = TIMING_ALL;
         uint8_t factory_reset = 0;

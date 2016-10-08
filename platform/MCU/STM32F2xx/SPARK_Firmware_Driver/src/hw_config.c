@@ -800,3 +800,65 @@ uint32_t Compute_CRC32(const uint8_t *pBuffer, uint32_t bufferSize)
 
     return Data;
 }
+
+#ifdef HAS_SERIAL_FLASH
+/**
+ * @brief  Computes the 32-bit CRC of a given buffer of byte data.
+ * @param  pBuffer: pointer to the buffer containing the data to be computed
+ * @param  BufferSize: Size of the buffer to be computed
+ * @retval 32-bit CRC
+ */
+uint32_t Compute_CRC32_sFLASH(uint32_t addr, uint32_t len)
+{
+    /* Hardware CRC32 calculation */
+    uint32_t i, j;
+    uint32_t Data;
+
+    CRC_ResetDR();
+
+    i = len >> 2;
+
+    uint32_t currentAddress = addr;
+
+    sFLASH_Init();
+
+    while (i--)
+    {
+    	sFLASH_ReadBuffer((uint8_t*)&Data, currentAddress, 4);
+//    	Data = __REV(Data);
+
+        currentAddress += 4;
+
+        Data = __RBIT(Data);//reverse the bit order of input Data
+        CRC->DR = Data;
+    }
+
+    Data = CRC->DR;
+    Data = __RBIT(Data);//reverse the bit order of output Data
+
+    i = len & 3;
+
+    while (i--)
+    {
+    	uint32_t tmp;
+    	sFLASH_ReadBuffer((uint8_t*)&tmp, currentAddress, 4);
+//    	tmp = __REV(tmp);
+
+    	currentAddress += 4;
+
+        Data ^= tmp;
+
+        for (j = 0 ; j < 8 ; j++)
+        {
+            if (Data & 1)
+                Data = (Data >> 1) ^ 0xEDB88320;
+            else
+                Data >>= 1;
+        }
+    }
+
+    Data ^= 0xFFFFFFFF;
+
+    return Data;
+}
+#endif

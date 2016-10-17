@@ -47,6 +47,7 @@
 #endif
 
 class Stream;
+int ota(String url);
 
 class SleepNetworkFlag
 {
@@ -279,6 +280,10 @@ public:
         uint32_t data = 0;
         HAL_Core_Get_Last_Reset_Info(nullptr, &data, nullptr);
         return data;
+    }
+
+    inline void ota(String url) {
+    	ota(url);
     }
 
 private:
